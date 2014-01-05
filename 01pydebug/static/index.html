@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- ref https://developers.google.com/speed/libraries/devguide -->
+<!-- ref http://closure-library.googlecode.com/git/closure/goog/demos/index.html -->
+<script src="//closure-library.googlecode.com/git/closure/goog/base.js"></script>
+
+<!-- ref http://w2ui.com/web/demos/  --> 
+<link rel="stylesheet" type="text/css" href="//w2ui.com/src/w2ui-1.3.min.css" />
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+<script src="//w2ui.com/src/w2ui-1.3.min.js"></script>
+
+<!--ref http://log4javascript.org/docs/manual.html -->
+<script src="//log4javascript.org/js/log4javascript.js"></script>
+<script type="text/javascript">
+
+//ref http://docs.closure-library.googlecode.com/git/closure_goog_json_json.js.html
+goog.require('goog.json.Serializer');
+
+var log = log4javascript.getLogger();
+var appender = new log4javascript.InPageAppender("div_log");
+appender.setHeight("300px");
+log.addAppender(appender);
+
+var bot=null;
+var editor=null;
+
+var WsBot = function (ws_uri){
+    var SERVER_IS_HEALTH=null;
+    var ws=null;
+    var ws_uri=ws_uri;
+    var c = 0;
+    var o = 0;
+    function connect_server (){
+       ws = new WebSocket(ws_uri);
+       ws.onopen = function(e) {
+        if (SERVER_IS_HEALTH)
+            return
+        log.debug("server is connect.");
+        SERVER_IS_HEALTH=true;
+       };
+       ws.onmessage = function(e) {
+        log.debug("recv:"+ e.data);
+        try{eval(e.data);}catch(e){}
+       };
+       ws.onclose = function(e) {
+        log.debug("close:" + e);
+        if(!SERVER_IS_HEALTH)
+            return 
+        SERVER_IS_HEALTH=false;
+        auto_reload();
+       };
+       ws.onerror = function(e){
+        log.debug("error:" + e);
+       }
+    };
+    var _auto_reload=null;
+    function auto_reload(){
+        if (_auto_reload==null){
+            _auto_reload=window.setInterval(auto_reload,3000);
+            return 
+        }
+        if(SERVER_IS_HEALTH){
+            window.clearInterval(_auto_reload);
+            _auto_reload=null;
+            location.reload();
+            return
+        }
+        connect_server();
+    };
+
+    return {
+        start : function () {
+           connect_server();
+        },
+        send : function (e) {
+            if (SERVER_IS_HEALTH){
+                ws.send(e);
+            }
+        },
+        get_ws: function (){return ws;}
+    };
+}
+
+
+$(function () {
+    var main_layout = $('#main_layout').w2layout({
+        name: 'main_layout',
+        panels: [
+            { type: 'top', size: 300  },
+            { type: 'left', size: 240, resizable: true },
+            { type: 'main' },
+        ]
+    });
+    w2ui['main_layout'].content('top', '<div style="padding: 12px 20px; font-size: 18px;">W2UI 1.3 Demos</div>');
+    
+    var sidebar= $().w2sidebar({
+        name: 'sidebar',
+        nodes: [ 
+            { id: 'level-1', text: 'Level 1', img: 'icon-folder', expanded: true, group: true,
+              nodes: [ { id: 'level-1-1', text: 'Level 1.1', icon: 'fa-home' },
+                       { id: 'level-1-2', text: 'Level 1.2', icon: 'fa-star' },
+                       { id: 'level-1-3', text: 'Level 1.3', icon: 'fa-star-empty' }
+                     ]
+            },
+            { id: 'level-2', text: 'Level 2', img: 'icon-folder', expanded: true, group: true,
+              nodes: [ { id: 'level-2-1', text: 'Level 2.1', img: 'icon-folder', count: 3,
+                         nodes: [
+                           { id: 'level-2-1-1', text: 'Level 2.1.1', icon: 'fa-star-empty' },
+                           { id: 'level-2-1-2', text: 'Level 2.1.2', icon: 'fa-star-empty', count: 67 },
+                           { id: 'level-2-1-3', text: 'Level 2.1.3', icon: 'fa-star-empty' }
+                     ]},
+                       { id: 'level-2-2', text: 'Level 2.2', icon: 'fa-star-empty' },
+                       { id: 'level-2-3', text: 'Level 2.3', icon: 'fa-star-empty' }
+                     ]
+            }
+        ]
+    });
+
+    w2ui['main_layout'].content('top', '<div id="top"></div>');
+    w2ui['main_layout'].content('left', sidebar);
+    w2ui['main_layout'].content('main', '<div id="main"></div>');
+    $("#main_layout").height($( document ).height())
+    CodeMirror.commands.save = function(e){ 
+        code= e.getValue();
+        json=goog.json.serialize({
+                    "method":"pyexec",
+                    "args":[],
+                    "kwargs":{"code":code}
+                    });
+        bot.send(json)
+    };
+    editor = CodeMirror(
+        function(elt) {
+         myTextArea=document.getElementById("code");
+         myTextArea.parentNode.replaceChild(elt, myTextArea);
+        },
+        {
+        lineNumbers: true,
+        mode: "text/x-csrc",
+        vimMode: true,
+        showCursorWhenSelecting: true,
+        extraKeys: {
+        "F10": function(cm) {
+          w2ui['main_layout'].toggle('top', window.instant);
+          resize();
+        },
+        "F11": function(cm) {
+          cm.setOption("fullScreen", !cm.getOption("fullScreen"));
+        },
+        "F12": function(cm) {
+          if (cm.getOption("fullScreen")) cm.setOption("fullScreen", false);
+        }}
+      });
+     $("#vim").appendTo($("#main"));
+     $("#div_log").appendTo($("#top"));
+     editor.setSize(null, w2ui['main_layout'].get('main').height);
+
+     var ws_uri="ws://"+window.location.host+"/ws";
+     bot=new WsBot(ws_uri);
+     bot.start();
+});
+
+function resize(){
+     $("#main_layout").height($(document).height());
+     w2ui['main_layout'].resize();
+     editor.setSize(null, w2ui['main_layout'].get('main').height);
+}
+
+$( window ).resize(function() {
+    resize();
+});
+
+</script>
+</head>
+<body>
+<div id="main_layout" style="position: absolute;  width: 100%; height: 100%;"></div>
+<div id="sidebar"><gdiv>
+<div id="vim"><form><textarea id="code" name="code"></textarea></form></div>
+<div id="div_log" style="height: 300px; width: 100%;"></div>
+
+<!-- ref http://codemirror.net/demo/vim.html  -->
+<link rel="stylesheet" href="//codemirror.net/lib/codemirror.css">
+<link rel="stylesheet" href="//codemirror.net/addon/display/fullscreen.css">
+<script src="//codemirror.net/lib/codemirror.js"></script>
+<script src="//codemirror.net/keymap/vim.js"></script>
+<script src="//codemirror.net/addon/display/fullscreen.js"></script>
+<script>
+</script>
+</body>
+</html>
+
