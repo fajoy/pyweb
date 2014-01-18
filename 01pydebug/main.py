@@ -22,6 +22,10 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.setLevel(logging.DEBUG)
 
+import time
+import gevent.monkey
+gevent.monkey.patch_all()
+
 html_escape_table = {
     "&": "&amp;",
     '"': "&quot;",
@@ -33,12 +37,11 @@ html_escape_table = {
 def escape(text):
     return "".join(html_escape_table.get(c,c) for c in text)
 
+    
 def background(_pool,*args,**kwargs):
-    from  pprint import pformat
     while True:
-        gevent.sleep(2)
         log.debug("gthread count: %s" %len( _pool))
-    return
+        time.sleep(1)
 
 def websocket_app(environ, start_response):
     from manager import WebSocketManager
@@ -67,7 +70,6 @@ if __name__ == "__main__":
     wsgi_app['/head']=ShowHead.factory(os.path.abspath(configfile))
 
     wsgi_app['/ws']=(websocket_app)
-    
     _pool = Pool(100)
     _pool.spawn(background,_pool)
     server = pywsgi.WSGIServer(("0.0.0.0", 18080)

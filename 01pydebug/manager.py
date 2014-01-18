@@ -4,7 +4,7 @@ from  json import JSONEncoder
 import logging
 from logging import Handler
 import gevent
-
+import os
 log = logging.getLogger(__name__)
 ch = logging.StreamHandler()
 ch.setLevel(logging.WARN)
@@ -36,8 +36,6 @@ class RpcDispatcher(object):
         super(RpcDispatcher, self).__init__()
     def dispatch(self, method=None, args=[] ,kwargs={}):
         for proxyobj in self.callbacks:
-            if not hasattr(proxyobj, method):
-                continue
             return getattr(proxyobj, method)(*args,**kwargs)
 
 class WebSocketConsumer(object):
@@ -58,9 +56,7 @@ class WebSocketConsumer(object):
         self.log.addHandler(ch)
         try:
             while True:
-                jsondict=self.receive()
-                if jsondict:
-                    self.dispatcher.dispatch(**jsondict)
+                self.receive()
         finally:
             log.removeHandler(ch)
 
@@ -68,7 +64,8 @@ class WebSocketConsumer(object):
         data = self.manager.ws.receive()
         try:
             jsondict = json.loads(data)
-            return jsondict
+            self.dispatcher.dispatch(**jsondict)
+
         except Exception as err:
             self.log.exception('WebSocket Recv Data: %s', data)
 
@@ -77,7 +74,44 @@ class WebSocketManager(object):
         self.environ=environ
         self.ws = environ["wsgi.websocket"]
         WebSocketConsumer(self).recv_loop()
-    def pyexec(self,code=""):
+
+    def rpc(self,js):
+        self.ws.send(js)
+        
+    def lsdir(self):
+        id_prefix="pages-"
+        walk_path="./pages"
+        top_path=os.path.abspath(os.path.join(os.path.dirname(__file__),walk_path ))
+        start_path=os.path.abspath(os.path.join(os.path.dirname(__file__),walk_path ))
+        items=[]
+        for directory,dirnames,filenames in os.walk(top_path):
+            dirn=os.path.relpath(directory,start=start_path)
+            files = [   {"id": "file-"+os.path.relpath(directory+"/"+filename,start=start_path),
+                        "img":"icon-page",
+                        "text":filename,}
+                        for filename in filenames]
+            item={"id":id_prefix+dirn,
+                  "text": dirn ,
+                  "img": 'icon-folder',
+                  "expanded": False,
+                  "count":len(files),
+                  "nodes":files,
+            }
+            items.append(item)
+
+        js="""w2ui.sidebar.insert('%s',null,%s);""" % (id_prefix,json.dumps(items))
+        self.rpc(js)
+
+    def writefile(self,path,cxt):
+        fd = open("pages/"+path,"w")
+        fd.write(cxt)
+        fd.close()
+
+    def readfile(self,path):
+        cxt=open("pages/"+path).read()
+        self.rpc("readfile(%s)" %json.dumps(cxt))
+
+    def pyexec(self,code):
         env=locals()
         env["log"] = logging.getLogger(str(gevent.getcurrent()))
         exec """import gevent.monkey

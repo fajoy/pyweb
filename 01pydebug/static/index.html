@@ -9,23 +9,36 @@
 <!-- ref http://w2ui.com/web/demos/  --> 
 <link rel="stylesheet" type="text/css" href="//w2ui.com/src/w2ui-1.3.min.css" />
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+
+<link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/smoothness/jquery-ui.css">
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+
 <script src="//w2ui.com/src/w2ui-1.3.min.js"></script>
 
-<!--ref http://log4javascript.org/docs/manual.html -->
-<script src="//log4javascript.org/js/log4javascript.js"></script>
+<style>
+ .ui-dialog { z-index: 1000 !important ;}
+</style>
+<!-- ref http://codemirror.net/demo/vim.html  -->
+<link rel="stylesheet" href="//codemirror.net/lib/codemirror.css">
+<link rel="stylesheet" href="//codemirror.net/addon/display/fullscreen.css">
+<script src="//codemirror.net/lib/codemirror.js"></script>
+<script src="//codemirror.net/keymap/vim.js"></script>
+<script src="//codemirror.net/addon/display/fullscreen.js"></script>
+
+
+
 <script type="text/javascript">
 
 //ref http://docs.closure-library.googlecode.com/git/closure_goog_json_json.js.html
 goog.require('goog.json.Serializer');
+var log = {"debug":function(e){console.debug(e)}};
 
-var log = log4javascript.getLogger();
-var appender = new log4javascript.InPageAppender("div_log");
-appender.setHeight("300px");
-log.addAppender(appender);
+
 
 var bot=null;
 var editor=null;
-
+var sidebar=null;
+var _openfile=null;
 var WsBot = function (ws_uri){
     var SERVER_IS_HEALTH=null;
     var ws=null;
@@ -39,6 +52,7 @@ var WsBot = function (ws_uri){
             return
         log.debug("server is connect.");
         SERVER_IS_HEALTH=true;
+        rpc("lsdir");
        };
        ws.onmessage = function(e) {
         log.debug("recv:"+ e.data);
@@ -46,6 +60,7 @@ var WsBot = function (ws_uri){
        };
        ws.onclose = function(e) {
         log.debug("close:" + e);
+        w2ui.sidebar.remove("pages-");
         if(!SERVER_IS_HEALTH)
             return 
         SERVER_IS_HEALTH=false;
@@ -83,39 +98,100 @@ var WsBot = function (ws_uri){
     };
 }
 
+function rpc(m){
+    if(arguments.length==0)
+        return;
+    json=goog.json.serialize({
+                    "method":m,
+                    "args":Array.prototype.slice.call(arguments,1)
+                    });
+    bot.send(json)
+}
+function readfile(cxt){
+   editor.setValue(cxt);
+}
 
 $(function () {
     var main_layout = $('#main_layout').w2layout({
         name: 'main_layout',
         panels: [
             { type: 'top', size: 300  },
-            { type: 'left', size: 240, resizable: true },
-            { type: 'main' },
+            { type: 'left', size: 240, resizable: true ,
+                    toolbar: {
+                    items: [
+                        { type: 'button',  id: 'btn-reload2',  caption: 'reload', img: 'icon-reload', hint: 'reload' }
+                    ],
+                    onClick: function (event) {
+                        log.debug(event);
+                        if(event.target='btn-reload2'){
+                        }
+                        }
+                    }
+
+            },
+            { type: 'main',
+                    toolbar: {
+                    items: [
+                        { type: 'button',  id: 'btn-save',  caption: 'save', img: 'icon-save', hint: 'save' },
+                        { type: 'button',  id: 'btn-reload',  caption: 'reload', img: 'icon-reload', hint: 'reload' },
+                        { type: 'spacer' ,  caption: 'reloadaa' }
+
+                    ],
+                    onClick: function (event) {
+                        if(event.target='btn-save'){
+
+                            //log.debug(event);
+                            code= editor.getValue();
+                            if(_openfile){
+                            rpc("writefile",_openfile,code);
+                            }
+                        }
+                    },
+                    },
+                    tabs: {
+                    active: 'tab0',
+                    tabs: [{ id: 'tab0', caption: 'Initial Tab' }],
+                    onClick: function (event) {
+                    
+                    },
+                    onClose: function (event) {
+                        this.click('tab0');
+                    }
+
+
+                }
+             },
         ]
     });
     w2ui['main_layout'].content('top', '<div style="padding: 12px 20px; font-size: 18px;">W2UI 1.3 Demos</div>');
     
-    var sidebar= $().w2sidebar({
+    sidebar= $().w2sidebar({
         name: 'sidebar',
-        nodes: [ 
-            { id: 'level-1', text: 'Level 1', img: 'icon-folder', expanded: true, group: true,
-              nodes: [ { id: 'level-1-1', text: 'Level 1.1', icon: 'fa-home' },
-                       { id: 'level-1-2', text: 'Level 1.2', icon: 'fa-star' },
-                       { id: 'level-1-3', text: 'Level 1.3', icon: 'fa-star-empty' }
-                     ]
-            },
-            { id: 'level-2', text: 'Level 2', img: 'icon-folder', expanded: true, group: true,
-              nodes: [ { id: 'level-2-1', text: 'Level 2.1', img: 'icon-folder', count: 3,
-                         nodes: [
-                           { id: 'level-2-1-1', text: 'Level 2.1.1', icon: 'fa-star-empty' },
-                           { id: 'level-2-1-2', text: 'Level 2.1.2', icon: 'fa-star-empty', count: 67 },
-                           { id: 'level-2-1-3', text: 'Level 2.1.3', icon: 'fa-star-empty' }
-                     ]},
-                       { id: 'level-2-2', text: 'Level 2.2', icon: 'fa-star-empty' },
-                       { id: 'level-2-3', text: 'Level 2.3', icon: 'fa-star-empty' }
-                     ]
+        nodes: [{ id: 'pages-', text: 'page', img: 'icon-folder', expanded: true, group: true}]
+    });
+
+    w2ui.sidebar.on('*', function (e) {
+        if(e.type=='click'){
+            p="file-";
+            n=e.target;
+            log.debug(e.target);
+            if(e.target.indexOf(p)==0){
+                f=n.slice(p.length);
+                rpc('readfile',f);
+                _openfile=f;
             }
-        ]
+            var tabs = w2ui.main_layout_main_tabs;
+            log.debug(e);
+            n=w2ui.main_layout_main_tabs.tabs.length;
+            if (tabs.get(n)) {
+                tabs.select(n);
+            } else {
+                tabs.add({ id: n  , caption: 'Tab '+ e.target, closable: true });
+            }
+
+        }
+            
+
     });
 
     w2ui['main_layout'].content('top', '<div id="top"></div>');
@@ -124,12 +200,9 @@ $(function () {
     $("#main_layout").height($( document ).height())
     CodeMirror.commands.save = function(e){ 
         code= e.getValue();
-        json=goog.json.serialize({
-                    "method":"pyexec",
-                    "args":[],
-                    "kwargs":{"code":code}
-                    });
-        bot.send(json)
+        if(_openfile){
+        rpc("writefile",_openfile,code);
+        }
     };
     editor = CodeMirror(
         function(elt) {
@@ -142,6 +215,11 @@ $(function () {
         vimMode: true,
         showCursorWhenSelecting: true,
         extraKeys: {
+        "F9": function(cm) {
+          code = cm.getValue();
+          log.debug(code);
+          rpc("pyexec",code);
+        },
         "F10": function(cm) {
           w2ui['main_layout'].toggle('top', window.instant);
           resize();
@@ -160,7 +238,10 @@ $(function () {
      var ws_uri="ws://"+window.location.host+"/ws";
      bot=new WsBot(ws_uri);
      bot.start();
+
+
 });
+
 
 function resize(){
      $("#main_layout").height($(document).height());
@@ -172,22 +253,16 @@ $( window ).resize(function() {
     resize();
 });
 
+
 </script>
 </head>
 <body>
 <div id="main_layout" style="position: absolute;  width: 100%; height: 100%;"></div>
 <div id="sidebar"><gdiv>
 <div id="vim"><form><textarea id="code" name="code"></textarea></form></div>
-<div id="div_log" style="height: 300px; width: 100%;"></div>
 
-<!-- ref http://codemirror.net/demo/vim.html  -->
-<link rel="stylesheet" href="//codemirror.net/lib/codemirror.css">
-<link rel="stylesheet" href="//codemirror.net/addon/display/fullscreen.css">
-<script src="//codemirror.net/lib/codemirror.js"></script>
-<script src="//codemirror.net/keymap/vim.js"></script>
-<script src="//codemirror.net/addon/display/fullscreen.js"></script>
-<script>
-</script>
+<!--ref http://log4javascript.org/docs/manual.html -->
+<script src="./logger.js"></script> 
 </body>
 </html>
 
