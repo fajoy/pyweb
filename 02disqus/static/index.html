@@ -9,31 +9,19 @@
 <!-- ref http://w2ui.com/web/demos/  --> 
 <link rel="stylesheet" type="text/css" href="//w2ui.com/src/w2ui-1.3.min.css" />
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
-
-<link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/smoothness/jquery-ui.css">
-<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
-
 <script src="//w2ui.com/src/w2ui-1.3.min.js"></script>
 
-<style>
- .ui-dialog { z-index: 1000 !important ;}
-</style>
-<!-- ref http://codemirror.net/demo/vim.html  -->
-<link rel="stylesheet" href="//codemirror.net/lib/codemirror.css">
-<link rel="stylesheet" href="//codemirror.net/addon/display/fullscreen.css">
-<script src="//codemirror.net/lib/codemirror.js"></script>
-<script src="//codemirror.net/keymap/vim.js"></script>
-<script src="//codemirror.net/addon/display/fullscreen.js"></script>
-
-
-
+<!--ref http://log4javascript.org/docs/manual.html -->
+<script src="//log4javascript.org/js/log4javascript.js"></script>
 <script type="text/javascript">
 
 //ref http://docs.closure-library.googlecode.com/git/closure_goog_json_json.js.html
 goog.require('goog.json.Serializer');
-var log = {"debug":function(e){console.debug(e)}};
 
-
+var log = log4javascript.getLogger();
+var appender = new log4javascript.InPageAppender("div_log");
+appender.setHeight("300px");
+log.addAppender(appender);
 
 var bot=null;
 var editor=null;
@@ -115,52 +103,9 @@ $(function () {
     var main_layout = $('#main_layout').w2layout({
         name: 'main_layout',
         panels: [
-            { type: 'top', size: 300,resizable: true  },
-            { type: 'left', size: 240, resizable: true ,
-                    toolbar: {
-                    items: [
-                        { type: 'button',  id: 'btn-reload2',  caption: 'reload', img: 'icon-reload', hint: 'reload' }
-                    ],
-                    onClick: function (event) {
-                        log.debug(event);
-                        if(event.target='btn-reload2'){
-                        }
-                        }
-                    }
-
-            },
-            { type: 'main',
-                    toolbar: {
-                    items: [
-                        { type: 'button',  id: 'btn-save',  caption: 'save', img: 'icon-save', hint: 'save' },
-                        { type: 'button',  id: 'btn-reload',  caption: 'reload', img: 'icon-reload', hint: 'reload' },
-                        { type: 'spacer' ,  caption: 'reloadaa' }
-
-                    ],
-                    onClick: function (event) {
-                        if(event.target='btn-save'){
-
-                            //log.debug(event);
-                            code= editor.getValue();
-                            if(_openfile){
-                            rpc("writefile",_openfile,code);
-                            }
-                        }
-                    },
-                    },
-                    tabs: {
-                    active: 'tab0',
-                    tabs: [{ id: 'tab0', caption: 'Initial Tab' }],
-                    onClick: function (event) {
-                    
-                    },
-                    onClose: function (event) {
-                        this.click('tab0');
-                    }
-
-
-                }
-             },
+            { type: 'top', size: 300  },
+            { type: 'left', size: 240, resizable: true },
+            { type: 'main' },
         ]
     });
     w2ui['main_layout'].content('top', '<div style="padding: 12px 20px; font-size: 18px;">W2UI 1.3 Demos</div>');
@@ -180,18 +125,7 @@ $(function () {
                 rpc('readfile',f);
                 _openfile=f;
             }
-            var tabs = w2ui.main_layout_main_tabs;
-            log.debug(e);
-            n=w2ui.main_layout_main_tabs.tabs.length;
-            if (tabs.get(n)) {
-                tabs.select(n);
-            } else {
-                tabs.add({ id: n  , caption: 'Tab '+ e.target, closable: true });
-            }
-
         }
-            
-
     });
 
     w2ui['main_layout'].content('top', '<div id="top"></div>');
@@ -238,10 +172,7 @@ $(function () {
      var ws_uri="ws://"+window.location.host+"/ws";
      bot=new WsBot(ws_uri);
      bot.start();
-
-
 });
-
 
 function resize(){
      $("#main_layout").height($(document).height());
@@ -253,16 +184,22 @@ $( window ).resize(function() {
     resize();
 });
 
-
 </script>
 </head>
 <body>
 <div id="main_layout" style="position: absolute;  width: 100%; height: 100%;"></div>
 <div id="sidebar"><gdiv>
 <div id="vim"><form><textarea id="code" name="code"></textarea></form></div>
+<div id="div_log" style="height: 300px; width: 100%;"></div>
 
-<!--ref http://log4javascript.org/docs/manual.html -->
-<script src="./logger.js"></script> 
+<!-- ref http://codemirror.net/demo/vim.html  -->
+<link rel="stylesheet" href="//codemirror.net/lib/codemirror.css">
+<link rel="stylesheet" href="//codemirror.net/addon/display/fullscreen.css">
+<script src="//codemirror.net/lib/codemirror.js"></script>
+<script src="//codemirror.net/keymap/vim.js"></script>
+<script src="//codemirror.net/addon/display/fullscreen.js"></script>
+<script>
+</script>
 </body>
 </html>
 
